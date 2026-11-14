@@ -7,7 +7,7 @@
  * - Stockage local : oursons attrapés (identifiant + date) et points de l'organisateur sur cet appareil.
  */
 (function(root){
-  const NEAR_M=40, LEAVE_M=70, MAX_ACCURACY_M=30, MAX_AGE_MS=15000, BEAR_M=3, POLL_MS=2000;
+  const NEAR_M=40, LEAVE_M=70, MAX_ACCURACY_M=45, MAX_AGE_MS=15000, BEAR_M=15, POLL_MS=2000;
   // Mise en avant des commerces suspendue : seuls les lieux de patrimoine sont suivis (aucun repère commerce).
   const COMMERCES_ACTIVE=false;
   const BEARS_KEY='bear-oursons-v1', RALLY_KEY='bear-rallye-points-v1';
@@ -86,10 +86,11 @@
     else for(const id of previous)near.add(id); // signal douteux : on ne change rien plutôt que d'inventer
     return {near,entered:[...near].filter(id=>!previous.has(id)),left:[...previous].filter(id=>!near.has(id)),reliable:!!ok};
   }
-  // Ours attrapable : à moins de 3 m, marge de la moitié de la précision GPS comprise (≈ 7 m pour 8 m de précision).
+  // Ours attrapable : il faut être sur place (15 m), et l'imprécision du GPS joue en faveur du joueur (moitié de la précision ajoutée).
+  // Exemple : précision 8 m → rayon effectif 19 m. Précision maximale acceptée : 45 m (readFix).
   function canCatch(bear,fix,now=Date.now()){
     const ok=readFix(fix,now);
-    return !!ok&&haversine(ok,bear)+ok.accuracy/2<=BEAR_M;
+    return !!ok&&haversine(ok,bear)<=BEAR_M+ok.accuracy/2;
   }
   function loadJSON(storage,key,fallback){try{const v=JSON.parse(storage?.getItem(key)||'null');return v??fallback;}catch{return fallback;}}
   function saveJSON(storage,key,value){try{storage?.setItem(key,JSON.stringify(value));return true;}catch{return false;}}
@@ -137,6 +138,8 @@
     // ---- Fiche monument ----
     function openFiche(id){
       const p=byId.get(id),sheet=el('monument-sheet');if(!p||!sheet)return false;
+      // Fiche ouverte = monument lu (mémorisé sur cet appareil, pour la partie Histoire du carnet).
+      try{const lus=loadLus();lus.add(id);saveJSON(storage,LUS_KEY,[...lus]);renderHistoire();}catch{}
       if(sheet.dataset)sheet.dataset.monumentId=id;
       const f=fiches?.fiches?.[id]||null;
       el('monument-title').textContent=p.name;
@@ -192,7 +195,26 @@
       if(best&&best.d<=120)return best.p.name;
       return 'un endroit secret';
     }
+    // Bouton « attraper » au-dessus de la carte : dès qu'un ours est à portée, pas besoin de toucher le petit marqueur (parfois caché par le panneau du bas).
+    let readyBtn=null;
+    function showReady(bear){
+      try{
+        if(!readyBtn&&doc.createElement&&doc.body?.append){
+          readyBtn=doc.createElement('button');readyBtn.type='button';readyBtn.className='bear-ready';readyBtn.hidden=true;
+          doc.body.append(readyBtn);
+        }
+        if(!readyBtn)return;
+        // Pas pendant l'accueil : le bouton n'apparaît que sur la carte.
+        const accueil=doc.getElementById('welcome');
+        if(!bear||(accueil&&!accueil.hidden)){readyBtn.hidden=true;return;}
+        readyBtn.textContent='🧸 '+bear.nom+' est là ! Touche pour l’attraper';
+        readyBtn.setAttribute('aria-label',bear.nom+' est là ! Touche pour l’attraper');
+        readyBtn.onclick=()=>tryCatch(bear);
+        readyBtn.hidden=false;
+      }catch{/* Bouton facultatif : le marqueur sur la carte reste cliquable. */}
+    }
     function renderBears(fix){
+      let toCatch=null;
       for(const bear of bears){
         // Un ours attrapé quitte la carte : il est désormais dans le carnet.
         if(caught[bear.id]){bearMarkers.get(bear.id)?.remove?.();bearMarkers.delete(bear.id);continue;}
@@ -206,11 +228,13 @@
         }
         if(!b)continue;
         const got=!!caught[bear.id],ready=!got&&canCatch(bear,fix);
+        if(ready&&!toCatch)toCatch=bear;
         // Conserver les classes posées par MapLibre (positionnement du marqueur) : ne remplacer que l'état de l'ourson.
         b.className=[...String(b.className||'').split(/\s+/).filter(c=>c&&!/^ourson-/.test(c)),'ourson-pin',got?'ourson-attrape':ready?'ourson-pret':'ourson-cache'].join(' ');
         (b._face||b).textContent=got?'✓':ready?'🧸':'🐾';
         b.setAttribute('aria-label',got?bear.nom+' est déjà dans ton carnet':ready?bear.nom+' est là ! Touche pour l’attraper':'Traces d’ourson : approche-toi');
       }
+      showReady(toCatch);
       renderCollection();
     }
     // Entrée dans le carnet : appelée une fois la rencontre terminée (ou directement sans module 3D).
@@ -228,6 +252,8 @@
       renderCollection();
       bearMarkers.get(bear.id)?._el?.classList?.add('ourson-capture');
       win2.setTimeout?.(()=>renderBears(getFix()),900);
+      // L'ours s'envole vers la page OURS du carnet (les autres pages sont masquées).
+      win.BearCarnetPages?.show?.('ours');
       ouvrirCarnet();
       ctx.closeRencontre?.();
       pourDansCarnet(from,bear,photo);
@@ -344,6 +370,26 @@
         list.append(li);
       });
       el('oursons-count').textContent=Object.keys(caught).length+' / '+bears.length+' oursons rencontrés';
+      renderHistoire();
+    }
+
+    // Partie HISTOIRE & PATRIMOINE du carnet : un monument par ligne, « lu » une fois sa fiche ouverte (sur cet appareil).
+    const LUS_KEY='bear-monuments-lus-v1';
+    function loadLus(){const v=loadJSON(storage,LUS_KEY,[]);return new Set(Array.isArray(v)?v.filter(x=>typeof x==='string'):[]);}
+    function renderHistoire(){
+      const list=el('histoire-list');if(!list||!doc.createElement)return;
+      const lus=loadLus(),pats=allPlaces.filter(p=>p.type==='patrimoine');
+      list.replaceChildren();
+      for(const p of pats){
+        const li=doc.createElement('li');li.className='ourson-slot';
+        const b=doc.createElement('button');b.type='button';
+        const done=lus.has(p.id);
+        b.textContent=(done?'✓ ':'◆ ')+p.name+' · '+(done?'lu':'à lire');
+        b.setAttribute('aria-label',p.name+' : '+(done?'déjà lu, ouvrir la fiche':'ouvrir la fiche'));
+        b.onclick=()=>openFiche(p.id);
+        li.append(b);list.append(li);
+      }
+      const c=el('histoire-count');if(c)c.textContent=lus.size+' / '+pats.length+' monuments lus';
     }
 
     // ---- Rallye photo : points ----
@@ -411,11 +457,30 @@
     map.on?.('click',e=>{if(orga&&e?.lngLat)startDraft(e.lngLat.lat,e.lngLat.lng,'carte');});
 
     // ---- Boucle : lecture passive de la position déjà suivie par le guidage ----
+    // Bouton « histoire » au-dessus de la carte : dès qu'un monument est à portée, sa fiche s'ouvre d'un toucher, sans viser le repère doré.
+    let placeBtn=null;
+    function showPlaceReady(){
+      try{
+        const id=[...near].find(x=>byId.get(x)?.type==='patrimoine');
+        const accueil=doc.getElementById('welcome');
+        if(!id||(accueil&&!accueil.hidden)){if(placeBtn)placeBtn.hidden=true;return;}
+        if(!placeBtn&&doc.createElement&&doc.body?.append){
+          placeBtn=doc.createElement('button');placeBtn.type='button';placeBtn.className='place-ready';placeBtn.hidden=true;
+          doc.body.append(placeBtn);
+        }
+        if(!placeBtn)return;
+        const p=byId.get(id);
+        placeBtn.textContent='◆ '+p.name+' · touche pour lire son histoire';
+        placeBtn.setAttribute('aria-label',p.name+' : touche pour lire son histoire');
+        placeBtn.onclick=()=>openFiche(id);
+        placeBtn.hidden=false;
+      }catch{/* Bouton facultatif : le repère doré reste disponible. */}
+    }
     function tick(fix=getFix(),now=Date.now()){
       const r=updateNear(near,allPlaces,fix,now);
       near=r.near;
       if(r.entered.length){const p=byId.get(r.entered[0]);toast('✨ '+p.name+' s’illumine ! '+(p.type==='patrimoine'?'Touche le repère doré pour découvrir son histoire.':'Touche son repère pour le découvrir.'));try{win.navigator?.vibrate?.([40,60,40]);}catch{}}
-      drawGlow();renderBears(fix);
+      drawGlow();showPlaceReady();renderBears(fix);
       return r;
     }
     map.on?.('style.load',drawGlow);

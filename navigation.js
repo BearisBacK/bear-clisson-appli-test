@@ -308,7 +308,7 @@ function renderProgress(projection,point=projection.point){
  positionMarker(point,demoRunning||gpsReliable,course);camera(point,course,demoRunning?100:650);
 }
 function suspendProgress(message){
- rallyeFix=null;
+ // La dernière position reste disponible pour les ours : decouverte.js la refuse d'elle-même après 15 s.
  gpsReliable=false;entryCandidate=null;entryDisplay();cancelSpeech();
  $('off-alert').hidden=true;
  $('next-announcement').textContent='Annonces km suspendues · attente GPS fiable';
