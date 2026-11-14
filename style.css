@@ -225,6 +225,13 @@ body.orga-mode #map{outline:4px dashed var(--river);outline-offset:-4px;cursor:c
 .carnet-tabs [role=tab]{flex:1;min-width:0;min-height:52px;padding:6px 4px;font-size:11px;line-height:1.15;border-radius:14px;letter-spacing:.02em}
 .carnet-tabs [role=tab][aria-selected=true],.carnet-tabs [role=tab].is-active{background:var(--ink);color:var(--paper)}
 .carnet-page[hidden]{display:none!important}
+/* Étape 1 : guide du départ, avant la balade */
+.depart-guide{position:fixed;z-index:6;top:calc(74px + env(safe-area-inset-top));left:14px;right:14px;max-width:500px;margin:0 auto;border-radius:22px;background:var(--paper);border:1px solid var(--ink);padding:16px 18px;box-shadow:0 6px 20px #2F2A2633}
+.depart-guide h2{font-size:26px;margin:2px 0 6px}
+.depart-guide p{margin:0 0 10px;font-size:15px;line-height:1.45}
+.depart-actions{display:flex;gap:8px;flex-wrap:wrap}
+.depart-actions button{flex:1 1 150px;min-height:52px}
+body.guide-on .instruction,body.guide-on .dashboard,body.guide-on .map-status{display:none!important}
 /* Tête d'ourson du carnet : dessin CSS original (oreilles, visage, museau, yeux) */
 .ourson-slot{display:flex;align-items:center;gap:12px}
 .ourson-tete{position:relative;flex:0 0 44px;width:44px;height:40px;margin-top:6px;border-radius:50% 50% 46% 46%;background:radial-gradient(circle at 34% 42%,#2F2A26 0 3px,transparent 3.5px),radial-gradient(circle at 66% 42%,#2F2A26 0 3px,transparent 3.5px),#A8723E;border:2px solid #2F2A26}

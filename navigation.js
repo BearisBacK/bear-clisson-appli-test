@@ -594,7 +594,7 @@ async function main(){
    map.addSource('route',{type:'geojson',data:line(active.points)});
    map.addSource('progress',{type:'geojson',data:line([first,first])});
    map.addSource('track',{type:'geojson',data:line([first,first])});
-   for(const [id,source,color,width] of [['route-halo','route','#FFF9F3',13],['route-bright','route','#1F4E79',8],['progress-halo','progress','#FFF9F3',10],['progress-bright','progress','#8EC9F3',5],['track-line','track','#C96E4B',4]]){
+   for(const [id,source,color,width] of [['route-halo','route','#FFF9F3',19],['route-bright','route','#1E6FD9',12],['progress-halo','progress','#FFF9F3',15],['progress-bright','progress','#A9B4BF',10],['track-line','track','#C96E4B',4]]){
     map.addLayer({id,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':width}});
    }
    for(const [id,p,color] of [['start',loopSession?.entry.point||first,'#C96E4B'],['end',active.points.at(-1),'#7FA36A']]){
@@ -681,3 +681,35 @@ document.addEventListener('visibilitychange',()=>{
  }
 });
 main();
+
+// ---- Étape 1 : guide du départ, avant la balade. Mène au repère vert, puis propose de démarrer. ----
+const DEPART_M=30;
+let departConfirmed=false;
+function departGuide(){
+ const el=document.getElementById('depart-guide');
+ if(!el||!active)return;
+ // « Partir à l’aventure » lance le GPS et la balade : le guide reste tant qu'on n'a pas marché, ou jusqu'à « Commencer ».
+ if(!balade)departConfirmed=false;
+ const show=!demoRunning&&!departConfirmed&&(!balade||walked===0);
+ document.body.classList.toggle('guide-on',show);
+ el.hidden=!show;
+ if(!show)return;
+ const first=active.points[0],dist=lastFix?metres(lastFix,first):null;
+ const title=$('depart-title'),text=$('depart-text'),act=$('depart-action'),see=$('depart-see');
+ if(dist===null){
+  title.textContent='Bienvenue sur la balade';
+  text.textContent='Ton parcours commence au repère vert. Autorise la localisation : l’appli te guide jusque-là.';
+  act.hidden=false;act.textContent='Activer ma position';act.onclick=()=>{if(!gpsRunning)startGps();};
+ }else if(dist>DEPART_M){
+  title.textContent='Va au point de départ';
+  text.textContent='Le repère vert est à '+fmtM(dist)+'. Suis la bande bleue sur la carte.';
+  act.hidden=true;
+ }else{
+  title.textContent='Tu es au départ !';
+  text.textContent='Ta balade est prête. Touche « Commencer », puis marche : le parcours s’enregistre sur ton appareil uniquement.';
+  act.hidden=false;act.textContent='Commencer la balade';
+  act.onclick=()=>{departConfirmed=true;if(!balade)beginBalade();if(!gpsRunning)startGps();departGuide();};
+ }
+ see.onclick=()=>{if(map)map.easeTo({center:[first[1],first[0]],zoom:17,duration:600});};
+}
+setInterval(()=>{try{departGuide();}catch{}},2000);
