@@ -7,7 +7,8 @@
   return !!(text(s?.id)&&text(s?.lieu?.nom)&&text(s?.lieu?.source)&&
    p?.certitude==='vérifiée'&&Number.isFinite(p.latitude)&&Math.abs(p.latitude)<=90&&
    Number.isFinite(p.longitude)&&Math.abs(p.longitude)<=180&&text(p.source)&&
-   text(o?.direction)&&text(o?.cadrage)&&text(o?.source)&&
+   // Orientation facultative (choix de l'organisateur) ; si elle est donnée, sa source doit être présente.
+   (o===undefined||text(o?.source))&&
    a?.accesPublic===true&&a?.arretSur===true&&text(a.source));
  }
  function catalogue(data){
@@ -30,9 +31,9 @@
   for(const spot of valid){
    const card=doc.createElement('article');card.className='spot-card';card.tabIndex=-1;
    const title=doc.createElement('h3');title.textContent=spot.lieu.nom;
-   const view=doc.createElement('p');view.textContent=spot.orientation.direction+' · '+spot.orientation.cadrage;
+   const view=doc.createElement('p');view.textContent=spot.orientation?(spot.orientation.direction+' · '+spot.orientation.cadrage):'';
    const source=doc.createElement('p');source.className='rallye-note';
-   source.textContent='Sources : '+[spot.lieu.source,spot.positionPriseDeVue.source,spot.orientation.source,spot.accessibilite.source].join(' · ');
+   source.textContent='Sources : '+[spot.lieu.source,spot.positionPriseDeVue.source,spot.orientation?.source,spot.accessibilite.source].filter(Boolean).join(' · ');
    const action=doc.createElement('button');action.type='button';action.textContent='Voir sur la carte';
    action.setAttribute('aria-label','Voir '+spot.lieu.nom+' sur la carte');
    const position=[spot.positionPriseDeVue.longitude,spot.positionPriseDeVue.latitude];

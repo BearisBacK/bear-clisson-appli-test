@@ -1,84 +1,474 @@
 {
   "schemaVersion": 1,
-  "statut": "préparation uniquement",
-  "pointsDeVue": [],
-  "inventaireLocal": {
-    "trace": {
-      "fichier": "data/parcours.json",
-      "sha256": "ea1e3ff2c2cc3d260df96eedc6ca8b1b6b2b76ffbbcfd3f5583fcefd3599e0f3",
-      "usage": "Trace existante, pas une preuve de point de prise de vue",
-      "sourceOriginale": "à vérifier"
+  "statut": "publié : spots relevés par l'organisateur",
+  "pointsDeVue": [
+    {
+      "id": "spot-01",
+      "lieu": {
+        "nom": "Spot photo n°1",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.088397,
+        "longitude": -1.284153,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
     },
-    "imagesExaminees": [
-      "assets/icon.svg",
-      "assets/icon-192.png",
-      "assets/icon-512.png",
-      "assets/brand/logo.jpg",
-      "assets/brand/clisson-photo-fournie.jpg",
-      "assets/brand/clisson-sevre-photo-fournie.jpg"
-    ],
-    "photosDeClissonVerifiables": [],
-    "imageAccueil": {
-      "fichier": "assets/brand/clisson-sevre-photo-fournie.jpg",
-      "origine": "Photo envoyée dans cette conversation le 03/11/2026, identique à Downloads/images.jpeg",
-      "sha256": "43862e8177fc30c09072d80c79a454ada220102a4dddb0faa21e61319516cb32",
-      "dimensionsPixels": "679x450",
-      "usage": "illustration de l’accueil en prévisualisation locale, sans déduction de coordonnées GPS ni droits de diffusion publique",
-      "limite": "résolution insuffisante pour garantir une netteté sur grand écran"
+    {
+      "id": "spot-02",
+      "lieu": {
+        "nom": "Photo du panneau NOM DE LA RUE",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.088253,
+        "longitude": -1.281955,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-03",
+      "lieu": {
+        "nom": "Pin Parasol",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087811,
+        "longitude": -1.281224,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-04",
+      "lieu": {
+        "nom": "Spot photo n°4",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.08719,
+        "longitude": -1.280782,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-05",
+      "lieu": {
+        "nom": "Spot photo n°5",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087014,
+        "longitude": -1.280735,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-06",
+      "lieu": {
+        "nom": "Spot photo n°6",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.08703,
+        "longitude": -1.279618,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-07",
+      "lieu": {
+        "nom": "Spot photo n°7",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087789,
+        "longitude": -1.276256,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-08",
+      "lieu": {
+        "nom": "Spot photo n°8",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.086702,
+        "longitude": -1.278149,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-09",
+      "lieu": {
+        "nom": "Le Héron de Alain Thomas",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.086867,
+        "longitude": -1.276514,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-10",
+      "lieu": {
+        "nom": "Vue sur la Feuillée et sur le temple de l'Amitié",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.085138,
+        "longitude": -1.271275,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-11",
+      "lieu": {
+        "nom": "Magnifique point de vue Château + Notre-Dame + Temple de l'Amitié",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.084868,
+        "longitude": -1.276163,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-12",
+      "lieu": {
+        "nom": "Spot photo n°12",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.086185,
+        "longitude": -1.274922,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-13",
+      "lieu": {
+        "nom": "Spot photo n°13",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.085988,
+        "longitude": -1.273643,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-14",
+      "lieu": {
+        "nom": "Panneau rue Jeanne de Belleville",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.085366,
+        "longitude": -1.265685,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-15",
+      "lieu": {
+        "nom": "Spot photo n°15",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.083114,
+        "longitude": -1.265909,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-16",
+      "lieu": {
+        "nom": "Spot photo n°16",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.079865,
+        "longitude": -1.262343,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-17",
+      "lieu": {
+        "nom": "Spot photo n°17",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.07991,
+        "longitude": -1.261991,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-18",
+      "lieu": {
+        "nom": "Spot photo n°18",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.074881,
+        "longitude": -1.254264,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-19",
+      "lieu": {
+        "nom": "La Grotte de Lourde",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.080291,
+        "longitude": -1.263332,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-20",
+      "lieu": {
+        "nom": "Hellfest Productions",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.084546,
+        "longitude": -1.268961,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-21",
+      "lieu": {
+        "nom": "Spot photo n°21",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.085524,
+        "longitude": -1.279759,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-22",
+      "lieu": {
+        "nom": "Spot photo n°22",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.08687,
+        "longitude": -1.281376,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-23",
+      "lieu": {
+        "nom": "Spot photo n°23",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087472,
+        "longitude": -1.281233,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-24",
+      "lieu": {
+        "nom": "Spot photo n°24",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087555,
+        "longitude": -1.281665,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-25",
+      "lieu": {
+        "nom": "Spot photo n°25",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.087245,
+        "longitude": -1.282148,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
+    },
+    {
+      "id": "spot-26",
+      "lieu": {
+        "nom": "La Gare",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "positionPriseDeVue": {
+        "latitude": 47.086202,
+        "longitude": -1.286088,
+        "certitude": "vérifiée",
+        "source": "Relevé terrain Bear is BacK, novembre 2026"
+      },
+      "accessibilite": {
+        "accesPublic": true,
+        "arretSur": true,
+        "source": "Relevé terrain Bear is BacK, novembre 2026 (déclaration de l'organisateur)"
+      }
     }
-  },
-  "ficheACompleter": {
-    "statut": "bloqué — sources manquantes",
-    "lieu": {
-      "nom": "à vérifier",
-      "sujet": "à vérifier",
-      "source": "à vérifier"
-    },
-    "positionPriseDeVue": {
-      "latitude": null,
-      "longitude": null,
-      "certitude": "à vérifier",
-      "source": "à vérifier"
-    },
-    "orientation": {
-      "azimutDegres": null,
-      "direction": "à vérifier",
-      "cadrage": "à vérifier",
-      "lumiereEtMoment": "à vérifier",
-      "source": "à vérifier"
-    },
-    "accessibilite": {
-      "accesPublic": "à vérifier",
-      "arretSur": "à vérifier",
-      "poussette": "à vérifier",
-      "fauteuil": "à vérifier",
-      "marchesEtPentes": "à vérifier",
-      "horaires": "à vérifier",
-      "source": "à vérifier"
-    },
-    "photoReference": {
-      "fichier": null,
-      "lieuRepresente": "à vérifier",
-      "pointEtDirectionDePriseDeVue": "à vérifier",
-      "source": "à vérifier"
-    },
-    "droitUtilisation": {
-      "auteur": "à vérifier",
-      "titulaire": "à vérifier",
-      "licenceOuAutorisation": "à vérifier",
-      "preuveLocale": "à vérifier",
-      "attribution": "à vérifier",
-      "usageApplication": "à vérifier",
-      "modification": "à vérifier"
-    },
-    "defi": {
-      "titre": "L’Œil de l’Ours : deux formes dans le paysage",
-      "consigne": "Une fois arrêté dans un endroit dont la sécurité a été vérifiée, repère deux formes différentes dans le paysage. Si tu le souhaites, garde une photo pour toi. Tu peux aussi simplement observer.",
-      "nature": "proposition éditoriale, non localisée",
-      "validationGPS": false,
-      "collectePhoto": false,
-      "publicationRequise": false
-    },
-    "integrationParcoursAutorisee": false
-  }
+  ]
 }
