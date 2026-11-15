@@ -486,6 +486,32 @@ function updateGpsDisplay(lat,lon,accuracy,timestamp=Date.now()){
  announceProgress(relativeProjection(matched),timestamp);
  $('confidence').textContent='Projection indicative';
  status(loopSession.complete?'Tour terminé · retour au point d’entrée':loopSession.remaining<30?'Point d’entrée à proximité · retour en cours':'Suivre la trace');
+ if(loopSession.complete&&!loopSession.celebrated){loopSession.celebrated=true;celebrateArrival();}
+}
+// Arrivée façon marathon : bandeau ARRIVÉE et confettis, fermés par un appui. Une seule fois par balade.
+function celebrateArrival(){
+ try{
+  if(!document.getElementById('arrivee-style')){
+   const st=document.createElement('style');st.id='arrivee-style';
+   st.textContent='#arrivee{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,30,60,.82);color:#fff;font-family:system-ui,sans-serif;overflow:hidden;cursor:pointer}'
+    +'#arrivee h2{font-size:56px;letter-spacing:.12em;margin:0 0 12px;font-weight:900;text-shadow:0 4px 18px rgba(0,0,0,.4);animation:arr-pop .6s ease-out}'
+    +'#arrivee p{margin:0;font-size:18px;opacity:.95}'
+    +'#arrivee .c{position:absolute;top:-20px;width:10px;height:14px;border-radius:2px;animation:arr-fall linear forwards}'
+    +'@keyframes arr-fall{to{transform:translateY(110vh) rotate(720deg)}}'
+    +'@keyframes arr-pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.1);opacity:1}100%{transform:scale(1)}}';
+   document.head.appendChild(st);
+  }
+  document.getElementById('arrivee')?.remove();
+  const box=document.createElement('div');box.id='arrivee';box.setAttribute('role','dialog');box.setAttribute('aria-label','Arrivée');
+  const h=document.createElement('h2');h.textContent='ARRIVÉE';
+  const p=document.createElement('p');p.textContent='Bravo, tu as bouclé le parcours !';
+  box.append(h,p);
+  const colors=['#E8A317','#1E6FD9','#1B8A3A','#C0392B','#FFFFFF','#9B59B6'];
+  for(let i=0;i<90;i++){const c=document.createElement('span');c.className='c';c.style.left=Math.random()*100+'%';c.style.background=colors[i%colors.length];c.style.animationDuration=(2.5+Math.random()*2.5)+'s';c.style.animationDelay=(Math.random()*1.2)+'s';box.appendChild(c);}
+  box.onclick=()=>box.remove();
+  document.body.appendChild(box);
+  speak('Arrivée ! Bravo, tu as bouclé le parcours.');
+ }catch(e){}
 }
 function stopGps(){
  rallyeFix=null;
@@ -577,9 +603,9 @@ async function main(){
   const response=await fetch('./data/parcours.json');if(!response.ok)throw Error('Trace indisponible');
   const bytes=await response.arrayBuffer();
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
-  if(hash!=='b7ff38edf3df88f04ef604c88dbbf36c401a620622fe35ac816e4636580915ec')throw Error('Empreinte de la trace incorrecte');
+  if(hash!=='bb7422b793ba4ea43ef3c7938d72764570df8ad3723b7d1d38af004166682f7d')throw Error('Empreinte de la trace incorrecte');
   const data=JSON.parse(new TextDecoder().decode(bytes));
-  if(data.parcours?.id!=='clisson-2026-11-01'||data.points?.length!==1145)throw Error('Identité de trace incorrecte');
+  if(data.parcours?.id!=='clisson-2026-11-01'||data.points?.length!==1062)throw Error('Identité de trace incorrecte');
   active={...data,points:data.points.map(p=>[p[0],p[1]])};
   loopRoute=LoopNavigation.prepare(active.points);
   cumul=[0];segLengths=[];
@@ -711,6 +737,9 @@ function departGuide(){
   act.hidden=false;act.textContent='Commencer la balade';
   act.onclick=()=>{departConfirmed=true;if(!balade)beginBalade();if(!gpsRunning)startGps();departGuide();};
  }
+ if(routeMsg&&Date.now()<routeMsgUntil)text.textContent=routeMsg;
+ title.textContent='POINT DE DÉPART';
+ const sign=$('depart-guide');if(sign){sign.style.background='#1E6FD9';sign.style.color='#FFFFFF';sign.style.border='4px solid #FFFFFF';}
  see.onclick=()=>{if(map)map.easeTo({center:[first[1],first[0]],zoom:17,duration:600});};
 }
 setInterval(()=>{try{departGuide();}catch{}},2000);
@@ -750,6 +779,8 @@ function ensureTurnBanner(){
  document.body.appendChild(b);
 }
 function placeTurnArrows(turns){
+ // Flèches blanches sur la carte retirées : seul le bandeau du haut donne la consigne.
+ return;
  if(turnMarkers.length||!map||!mapReady)return;
  for(const t of turns){
   const p=atDistance(t.along+6).point;
@@ -760,7 +791,9 @@ function placeTurnArrows(turns){
   m._along=t.along;turnMarkers.push(m);
  }
 }
+let lastTurnAlong=0;
 function updateTurnGuide(along){
+ lastTurnAlong=along;
  ensureTurnBanner();
  const banner=document.getElementById('turn-banner');
  const turns=turnList();
@@ -794,4 +827,63 @@ function updateStartArrow(){
  el.style.display='block';
  el.style.transform='rotate('+(bearing(lastFix,first)-(heading??0))+'deg)';
 }
-setInterval(()=>{try{updateStartArrow();}catch{}},2000);
+setInterval(()=>{try{updateStartArrow();}catch{}try{if(balade||demoRunning)updateTurnGuide(lastTurnAlong);}catch{}},2000);
+
+// --- Itinéraire à pied jusqu'au point de départ (appel réseau seulement sur appui du bouton) ---
+const ROUTE_API='https://valhalla1.openstreetmap.de/route';
+let toStartBusy=false, toStartLast=0, routeMsg='', routeMsgUntil=0;
+function decodePolyline6(s){
+ const out=[];let i=0,lat=0,lon=0;
+ while(i<s.length){
+  for(const axis of [0,1]){
+   let shift=0,res=0,b;
+   do{b=s.charCodeAt(i++)-63;res|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
+   const v=(res&1)?~(res>>1):(res>>1);
+   if(axis===0)lat+=v;else lon+=v;
+  }
+  out.push([lat/1e6,lon/1e6]);
+ }
+ return out;
+}
+function ensureRouteButton(){
+ const actions=document.querySelector('#depart-guide .depart-actions');
+ if(!actions||document.getElementById('depart-route'))return;
+ const b=document.createElement('button');
+ b.type='button';b.id='depart-route';b.className='primary';
+ b.textContent='Itinéraire à pied jusqu’au départ';
+ b.setAttribute('aria-label','Calculer l’itinéraire à pied jusqu’au point de départ');
+ b.onclick=routeToStart;
+ actions.append(b);
+}
+async function routeToStart(){
+ const btn=document.getElementById('depart-route');
+ if(!active||!lastFix){$('depart-text').textContent='Autorise d’abord ta position, puis touche à nouveau le bouton.';return;}
+ if(toStartBusy)return;
+ if(Date.now()-toStartLast<20000){return;}
+ toStartBusy=true;toStartLast=Date.now();
+ if(btn)btn.textContent='Calcul en cours…';
+ try{
+  const first=active.points[0];
+  const body={locations:[{lat:lastFix[0],lon:lastFix[1]},{lat:first[0],lon:first[1]}],costing:'pedestrian',directions_options:{units:'kilometers'}};
+  const r=await fetch(ROUTE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const j=await r.json();
+  const leg=j.trip?.legs?.[0];
+  if(!leg?.shape)throw Error('pas d’itinéraire');
+  const pts=decodePolyline6(leg.shape);
+  const km=j.trip.summary.length, min=Math.round(j.trip.summary.time/60);
+  if(!map.getSource('to-start')){
+   map.addSource('to-start',{type:'geojson',data:line(pts)});
+   map.addLayer({id:'to-start',type:'line',source:'to-start',layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':'#1E6FD9','line-width':roadWidth(6),'line-dasharray':[1.2,1]}});
+  }else map.getSource('to-start').setData(line(pts));
+  routeMsg='Itinéraire à pied : '+fmtM(km*1000)+' environ, '+min+' min. Suis la ligne bleue en pointillés.';routeMsgUntil=Date.now()+600000;
+  $('depart-text').textContent=routeMsg;
+  if(btn)btn.textContent='Itinéraire calculé';
+ }catch(e){
+  routeMsg='Itinéraire indisponible ('+e.message+'). Suis la flèche et la distance.';routeMsgUntil=Date.now()+60000;
+  $('depart-text').textContent=routeMsg;
+  if(btn)btn.textContent='Itinéraire à pied jusqu’au départ';
+ }finally{toStartBusy=false;}
+}
+setInterval(()=>{try{ensureRouteButton();}catch{}},2000);
