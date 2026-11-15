@@ -304,6 +304,7 @@ function renderProgress(projection,point=projection.point){
  if(done.length===1)done.push(done[0]);
  map.getSource('progress')?.setData(line(done));
  }
+ try{updateTurnGuide(relative.along);}catch{}
  const course=demoRunning||moveCourse===null?routeHeading(projection)+(loopSession&&!demoRunning&&loopSession.direction<0?180:0):moveCourse;
  positionMarker(point,demoRunning||gpsReliable,course);camera(point,course,demoRunning?100:650);
 }
@@ -576,9 +577,9 @@ async function main(){
   const response=await fetch('./data/parcours.json');if(!response.ok)throw Error('Trace indisponible');
   const bytes=await response.arrayBuffer();
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
-  if(hash!=='ea1e3ff2c2cc3d260df96eedc6ca8b1b6b2b76ffbbcfd3f5583fcefd3599e0f3')throw Error('Empreinte de la trace incorrecte');
+  if(hash!=='b7ff38edf3df88f04ef604c88dbbf36c401a620622fe35ac816e4636580915ec')throw Error('Empreinte de la trace incorrecte');
   const data=JSON.parse(new TextDecoder().decode(bytes));
-  if(data.parcours?.id!=='clisson-2026-11-01'||data.points?.length!==1686)throw Error('Identité de trace incorrecte');
+  if(data.parcours?.id!=='clisson-2026-11-01'||data.points?.length!==1145)throw Error('Identité de trace incorrecte');
   active={...data,points:data.points.map(p=>[p[0],p[1]])};
   loopRoute=LoopNavigation.prepare(active.points);
   cumul=[0];segLengths=[];
@@ -594,7 +595,7 @@ async function main(){
    map.addSource('route',{type:'geojson',data:line(active.points)});
    map.addSource('progress',{type:'geojson',data:line([first,first])});
    map.addSource('track',{type:'geojson',data:line([first,first])});
-   for(const [id,source,color,width] of [['route-halo','route','#FFF9F3',19],['route-bright','route','#1E6FD9',12],['progress-halo','progress','#FFF9F3',15],['progress-bright','progress','#A9B4BF',10],['track-line','track','#C96E4B',4]]){
+   for(const [id,source,color,width] of [['route-halo','route','#FFF9F3',roadWidth(9)],['route-bright','route','#1E6FD9',roadWidth(7)],['progress-halo','progress','#FFF9F3',roadWidth(9)],['progress-bright','progress','#A9B4BF',roadWidth(7)],['track-line','track','#C96E4B',4]]){
     map.addLayer({id,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':width}});
    }
    for(const [id,p,color] of [['start',loopSession?.entry.point||first,'#C96E4B'],['end',active.points.at(-1),'#7FA36A']]){
@@ -698,11 +699,11 @@ function departGuide(){
  const title=$('depart-title'),text=$('depart-text'),act=$('depart-action'),see=$('depart-see');
  if(dist===null){
   title.textContent='Bienvenue sur la balade';
-  text.textContent='Ton parcours commence au repère vert. Autorise la localisation : l’appli te guide jusque-là.';
+  text.textContent='Ton parcours commence au point de départ rouge. Autorise la localisation : l’appli te guide jusque-là.';
   act.hidden=false;act.textContent='Activer ma position';act.onclick=()=>{if(!gpsRunning)startGps();};
  }else if(dist>DEPART_M){
   title.textContent='Va au point de départ';
-  text.textContent='Le repère vert est à '+fmtM(dist)+'. Suis la bande bleue sur la carte.';
+  text.textContent='Le point de départ rouge est à '+fmtM(dist)+'. Suis la bande bleue sur la carte.';
   act.hidden=true;
  }else{
   title.textContent='Tu es au départ !';
@@ -713,3 +714,84 @@ function departGuide(){
  see.onclick=()=>{if(map)map.easeTo({center:[first[1],first[0]],zoom:17,duration:600});};
 }
 setInterval(()=>{try{departGuide();}catch{}},2000);
+
+// --- Guidage type GPS : trace pleine largeur de rue, virages annoncés, flèches blanches sur le tracé ---
+// Largeur en mètres réels : px = m × 2^zoom / (156543 × cos(lat)), ici lat ≈ 47,08°.
+function roadWidth(m){
+ const expr=['interpolate',['linear'],['zoom']];
+ for(let z=12;z<=20;z++)expr.push(z,Math.max(2,m*Math.pow(2,z)/106555));
+ return expr;
+}
+let turnCache=null, turnKey='', turnMarkers=[];
+// Virage = changement de direction d'au moins 40° sur 18 m avant et après le sommet.
+function turnList(){
+ if(!active)return [];
+ const key=active.points.length+':'+active.points[0][0];
+ if(turnCache&&turnKey===key)return turnCache;
+ const pts=active.points, total=totalMeters, out=[];
+ let last=-1e9;
+ for(let i=1;i<pts.length-1;i++){
+  const s=cumul[i];
+  if(s-last<30)continue;
+  const before=atDistance(Math.max(0,s-18)).point, after=atDistance(Math.min(total,s+18)).point;
+  const b1=bearing(before,pts[i]), b2=bearing(pts[i],after);
+  const d=((b2-b1+540)%360)-180;
+  if(Math.abs(d)>=40){out.push({along:s,index:i,dir:d>0?'droite':'gauche',out:b2});last=s;}
+ }
+ turnCache=out;turnKey=key;turnMarkers.forEach(m=>{try{m.remove();}catch{}});turnMarkers=[];
+ return out;
+}
+function ensureTurnBanner(){
+ if(document.getElementById('turn-banner'))return;
+ const b=document.createElement('div');
+ b.id='turn-banner';b.setAttribute('role','status');b.setAttribute('aria-live','polite');
+ b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:60;display:none;align-items:center;gap:14px;padding:14px 16px;background:#15191f;color:#fff;font-family:-apple-system,system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.45);';
+ b.innerHTML='<svg id="turn-arrow" width="60" height="60" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="M5 21V11q0-5 5-5h9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2l7 4-7 4z" fill="#fff"/></svg><div style="min-width:0"><div id="turn-main" style="font-size:26px;font-weight:700;line-height:1.1"></div><div id="turn-sub" style="font-size:15px;color:#9fb4c7;margin-top:4px"></div></div>';
+ document.body.appendChild(b);
+}
+function placeTurnArrows(turns){
+ if(turnMarkers.length||!map||!mapReady)return;
+ for(const t of turns){
+  const p=atDistance(t.along+6).point;
+  const el=document.createElement('div');
+  el.className='turn-arrow-map';el.style.pointerEvents='none';
+  el.innerHTML='<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 20 12 15 3 20z" fill="#fff" stroke="#1E6FD9" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  const m=new maplibregl.Marker({element:el,rotation:t.out,rotationAlignment:'map',pitchAlignment:'map'}).setLngLat([p[1],p[0]]).addTo(map);
+  m._along=t.along;turnMarkers.push(m);
+ }
+}
+function updateTurnGuide(along){
+ ensureTurnBanner();
+ const banner=document.getElementById('turn-banner');
+ const turns=turnList();
+ const active_=!!active&&(balade||demoRunning);
+ banner.style.display=active_?'flex':'none';
+ if(!active_||!turns.length)return;
+ placeTurnArrows(turns);
+ turnMarkers.forEach(m=>{m.getElement().style.display=m._along<along-8?'none':'';});
+ const i=turns.findIndex(t=>t.along>along+3);
+ const main=document.getElementById('turn-main'), sub=document.getElementById('turn-sub'), arrow=document.getElementById('turn-arrow');
+ if(i<0){main.textContent='Dernier tronçon';sub.textContent='Tu approches de l’arrivée';arrow.style.transform='';return;}
+ const next=turns[i], after=turns[i+1], dist=next.along-along;
+ main.textContent=dist<25?'Maintenant : tourne à '+next.dir:'Dans '+fmtM(dist)+' : tourne à '+next.dir;
+ sub.textContent=after?'Puis dans '+fmtM(after.along-next.along)+' : tourne à '+after.dir:'Puis arrivée';
+ arrow.style.transform=next.dir==='gauche'?'scaleX(-1)':'';
+}
+// Guide vers le départ : flèche blanche/bleue qui pointe vers le point de départ rouge.
+function updateStartArrow(){
+ let el=document.getElementById('depart-arrow');
+ const text=$('depart-text');
+ if(!el&&text){
+  el=document.createElement('div');el.id='depart-arrow';el.setAttribute('aria-hidden','true');
+  el.style.cssText='width:64px;height:64px;margin:10px auto 0;display:none;';
+  el.innerHTML='<svg width="64" height="64" viewBox="0 0 24 24"><path d="M12 2L21 20 12 15 3 20z" fill="#1E6FD9" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  text.insertAdjacentElement('afterend',el);
+ }
+ if(!el)return;
+ const shown=document.body.classList.contains('guide-on')&&!!lastFix&&!!active;
+ if(!shown){el.style.display='none';return;}
+ const first=active.points[0];
+ el.style.display='block';
+ el.style.transform='rotate('+(bearing(lastFix,first)-(heading??0))+'deg)';
+}
+setInterval(()=>{try{updateStartArrow();}catch{}},2000);
