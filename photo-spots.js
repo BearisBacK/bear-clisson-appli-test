@@ -19,10 +19,17 @@
   });
  }
  // Photos de spots : une photo par identifiant de spot, stockée sur cet appareil uniquement (aucun envoi).
+ // Plusieurs photos possibles par spot (12 au maximum, pour rester dans le stockage du téléphone).
+ const MAX_PER_SPOT=12;
  function loadPhotos(storage){
   try{
    const v=JSON.parse(storage?.getItem(PHOTO_KEY)||'{}');const out={};
-   for(const [id,url] of Object.entries(v||{}))if(/^[A-Za-z0-9_-]{1,40}$/.test(id)&&typeof url==='string'&&url.startsWith('data:image/jpeg;base64,')&&url.length<400000)out[id]=url;
+   for(const [id,value] of Object.entries(v||{})){
+    if(!/^[A-Za-z0-9_-]{1,40}$/.test(id))continue;
+    // Ancien format : une seule photo (texte) ; nouveau format : liste de photos.
+    const arr=(Array.isArray(value)?value:[value]).filter(u=>typeof u==='string'&&u.startsWith('data:image/jpeg;base64,')&&u.length<400000).slice(0,MAX_PER_SPOT);
+    if(arr.length)out[id]=arr;
+   }
    return out;
   }catch{return {};}
  }
@@ -49,6 +56,8 @@
   doc.getElementById('spots-close').onclick=()=>panel.close();
   list.replaceChildren();
   const valid=catalogue({pointsDeVue:spots});
+  // Positions utilisées par le son d'approche (sons-balade.js).
+  (typeof window!=='undefined'?window:globalThis).BearSpotPositions=valid.map(s=>({id:s.id,lat:s.positionPriseDeVue.latitude,lon:s.positionPriseDeVue.longitude}));
   const photos=loadPhotos(storage);
   status.textContent=valid.length?valid.length+' spot(s) documenté(s). Arrête-toi en sécurité avant de photographier.':
    'Les beaux points de vue attendent leurs repères. Aucun spot photo vérifié dans cet atelier : aucune épingle affichée. La balade et le Carnet restent disponibles.';
@@ -60,9 +69,10 @@
    for(const spot of valid){
     const li=doc.createElement('li');li.className='ourson-slot';
     const name=doc.createElement('span');name.textContent=spot.lieu.nom;
-    const state=doc.createElement('span');state.textContent=photos[spot.id]?'📷 photo rattachée':'pas encore de photo';
+    const shots=photos[spot.id]||[];
+    const state=doc.createElement('span');state.textContent=shots.length?'📷 '+shots.length+(shots.length>1?' photos rattachées':' photo rattachée'):'pas encore de photo';
     li.append(name,state);
-    if(photos[spot.id]){const img=doc.createElement('img');img.className='spot-thumb';img.src=photos[spot.id];img.alt='Photo du spot '+spot.lieu.nom;li.append(img);}
+    shots.forEach((url,i)=>{const img=doc.createElement('img');img.className='spot-thumb';img.src=url;img.alt='Photo '+(i+1)+' du spot '+spot.lieu.nom;li.append(img);});
     carnet.append(li);
    }
   }
@@ -79,16 +89,22 @@
    const note=doc.createElement('p');note.textContent='Accès depuis la trace non validé : aucun détour guidé proposé.';
    // Photo du spot : bouton qui ouvre l'appareil photo, photo rattachée à l'identifiant du spot.
    const photoBox=doc.createElement('div');photoBox.className='spot-photo';
-   const thumb=doc.createElement('img');thumb.className='spot-thumb';thumb.alt='Photo du spot '+spot.lieu.nom;
+   const gallery=doc.createElement('div');gallery.className='spot-gallery';
    const take=doc.createElement('button');take.type='button';
    take.setAttribute('aria-label','Ouvrir l’appareil photo pour le spot '+spot.lieu.nom);
    const file=doc.createElement('input');file.type='file';file.accept='image/*';file.setAttribute('capture','environment');file.className='visually-hidden-file';
    const photoStatus=doc.createElement('p');photoStatus.className='rallye-note';photoStatus.setAttribute('role','status');
    const paint=()=>{
-    const has=!!photos[spot.id];
-    take.textContent=has?'Reprendre la photo':'📷 Prendre la photo de ce spot';
-    if(has)thumb.src=photos[spot.id];else thumb.removeAttribute?.('src');
-    thumb.hidden=!has;
+    const shots=photos[spot.id]||[];
+    take.textContent=shots.length?'📷 Ajouter une autre photo':'📷 Prendre la photo de ce spot';
+    gallery.replaceChildren(...shots.map((url,i)=>{
+     const fig=doc.createElement('div');fig.className='spot-shot';
+     const img=doc.createElement('img');img.className='spot-thumb';img.src=url;img.alt='Photo '+(i+1)+' du spot '+spot.lieu.nom;
+     const del=doc.createElement('button');del.type='button';del.textContent='Retirer cette photo';
+     del.setAttribute('aria-label','Retirer la photo '+(i+1)+' du spot '+spot.lieu.nom);
+     del.onclick=()=>{const rest=(photos[spot.id]||[]).filter((_,j)=>j!==i);if(rest.length)photos[spot.id]=rest;else delete photos[spot.id];savePhotos(storage,photos);paint();renderCarnet();};
+     fig.append(img,del);return fig;
+    }));
    };
    take.onclick=()=>file.click();
    file.onchange=async()=>{
@@ -97,13 +113,15 @@
     photoStatus.textContent='Traitement de la photo…';
     try{
      const url=await shrink(f);
-     photos[spot.id]=url;
-     if(!savePhotos(storage,photos)){delete photos[spot.id];throw Error('stockage');}
+     const current=photos[spot.id]||[];
+     if(current.length>=MAX_PER_SPOT){photoStatus.textContent='Ce spot a déjà '+MAX_PER_SPOT+' photos. Retire-en une pour en ajouter.';return;}
+     photos[spot.id]=[...current,url];
+     if(!savePhotos(storage,photos)){if(current.length)photos[spot.id]=current;else delete photos[spot.id];throw Error('stockage');}
      paint();renderCarnet();
-     photoStatus.textContent='Photo rattachée à ce spot.';
+     photoStatus.textContent=current.length?'Photo ajoutée : '+(current.length+1)+' pour ce spot.':'Photo rattachée à ce spot.';
     }catch{photoStatus.textContent='Photo non enregistrée : format non reconnu ou stockage plein.';}
    };
-   photoBox.append(thumb,take,file,photoStatus);
+   photoBox.append(gallery,take,file,photoStatus);
    paint();
    card.append(title,view,source,action,note,photoBox);list.append(card);
    const pin=doc.createElement('button');pin.type='button';pin.className='spot-pin';pin.textContent='📷';

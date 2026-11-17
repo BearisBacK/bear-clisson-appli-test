@@ -305,8 +305,55 @@ function renderProgress(projection,point=projection.point){
  map.getSource('progress')?.setData(line(done));
  }
  try{updateTurnGuide(relative.along);}catch{}
+ try{updateAhead(relative.along);}catch{}
+ try{renderNextRepere(relative.along);}catch{}
  const course=demoRunning||moveCourse===null?routeHeading(projection)+(loopSession&&!demoRunning&&loopSession.direction<0?180:0):moveCourse;
  positionMarker(point,demoRunning||gpsReliable,course);camera(point,course,demoRunning?100:650);
+}
+// Pendant la balade : on ne montre que la portion à venir ; la boucle complète et le point d'arrivée sont masqués.
+const AHEAD_M=500, RETURN_M=500;
+let fullRoute=false, lastAlong=0;
+function guidanceOn(){return !!balade&&!demoRunning&&!!loopSession&&(departConfirmed||walked>0);}
+// Bouton « Voir tout le tracé » : bascule entre la portion à venir et la boucle complète.
+function toggleFullRoute(){
+ fullRoute=!fullRoute;
+ const b=$('full-route');
+ b.setAttribute('aria-pressed',String(fullRoute));
+ b.textContent=fullRoute?'Revenir à ma direction':'Voir tout le tracé';
+ try{updateAhead(lastAlong);}catch{}
+}
+function updateAhead(along){
+ lastAlong=along;
+ if(!mapReady||!map.getLayer('ahead-bright'))return;
+ const on=guidanceOn();
+ const showFull=!on||fullRoute;
+ for(const id of ['route-halo','route-bright','return-line'])map.setLayoutProperty(id,'visibility',showFull?'visible':'none');
+ for(const id of ['ahead-halo','ahead-bright'])map.setLayoutProperty(id,'visibility',showFull?'none':'visible');
+ // Départ et arrivée sont au même endroit : un seul repère, le point de départ.
+ map.setLayoutProperty('end','visibility','none');
+ if(showFull)return;
+ const total=totalMeters,a=((along%total)+total)%total;
+ const pts=loopSession.direction<0?trailBetween(Math.max(0,a-AHEAD_M),a).reverse():trailBetween(a,Math.min(total,a+AHEAD_M));
+ map.getSource('ahead').setData(line(pts));
+}
+// Indique de quel côté revenir sur le tracé, par rapport au sens de marche.
+function rejoinHint(nearest){
+ try{
+  const course=travelCourse();
+  const rel=((bearing(lastFix,nearest.point)-course+540)%360)-180;
+  const side=Math.abs(rel)<35?'devant toi':Math.abs(rel)>145?'derrière toi':rel>0?'à droite':'à gauche';
+  return 'Rejoins le tracé · '+fmtM(nearest.gap)+' '+side;
+ }catch{return 'Rejoins le tracé · '+fmtM(nearest.gap)+' de la ligne';}
+}
+// Prochain repère (ours non attrapé) : distance restante le long de la trace.
+function renderNextRepere(along){
+ const el=document.getElementById('next-repere');if(!el)return;
+ const api=window.BearDecouverte;
+ // Visible aussi en démonstration (on peut tester le parcours chez soi).
+ if(!(balade||demoRunning)||!api){el.textContent='';return;}
+ const caught=api.caught?.()||{};
+ const ahead=(api.BEARS||[]).filter(b=>!caught[b.id]&&b.km*1000>along).sort((a,b)=>a.km-b.km)[0];
+ el.textContent=ahead?'Prochain repère : '+ahead.nom+', dans '+fmtM(ahead.km*1000-along):'Plus de repère devant toi';
 }
 function suspendProgress(message){
  // La dernière position reste disponible pour les ours : decouverte.js la refuse d'elle-même après 15 s.
@@ -424,6 +471,7 @@ function updateGpsDisplay(lat,lon,accuracy,timestamp=Date.now()){
  lastSampleTime=timestamp;clearTimeout(freshnessTimer);
  freshnessTimer=setTimeout(()=>{if(gpsRunning){$('signal').textContent='GPS sans mesure récente';suspendProgress('Signal GPS perdu. Attends une mesure récente.');}},Math.max(1,GPS.maxAge-(now-timestamp)));
  lastFix=[lat,lon];positionMarker(lastFix,false);
+ try{window.BearSons?.spotCheck(lat,lon);}catch{}
  $('accuracy').textContent=fmtM(accuracy);$('signal').textContent=accuracy>GPS.maxAccuracy?'GPS peu précis':'GPS actif';
  lastFixTime=timestamp;if(!lastWalkAt)lastWalkAt=timestamp;
  updateMoveCourse(lat,lon,accuracy,timestamp);
@@ -439,7 +487,7 @@ function updateGpsDisplay(lat,lon,accuracy,timestamp=Date.now()){
    offRouteWatch(nearest,accuracy,timestamp);
    if(offRoute){
     if(timestamp-lastOffAlert>=60000){lastOffAlert=timestamp;speakAlert();}
-    $('off-alert').hidden=false;$('rejoin-text').textContent='Rejoins le tracé · '+fmtM(nearest.gap)+' de la ligne';
+    $('off-alert').hidden=false;$('rejoin-text').textContent=rejoinHint(nearest);
    }
   }
   return;
@@ -454,7 +502,7 @@ function updateGpsDisplay(lat,lon,accuracy,timestamp=Date.now()){
   entryCandidate=null;entryDisplay();
   if(timestamp-lastOffAlert>=60000){lastOffAlert=timestamp;speakAlert();}
   $('off-alert').hidden=false;
-  $('rejoin-text').textContent='Rejoins le tracé · '+fmtM(nearest.gap)+' de la ligne';
+  $('rejoin-text').textContent=rejoinHint(nearest);
   $('confidence').textContent='Hors trace · parcours enregistré';
   offTraceDisplay(nearest);
   positionMarker(lastFix,true,travelCourse());camera(lastFix,travelCourse());
@@ -624,6 +672,15 @@ async function main(){
    for(const [id,source,color,width] of [['route-halo','route','#FFF9F3',roadWidth(9)],['route-bright','route','#1E6FD9',roadWidth(7)],['progress-halo','progress','#FFF9F3',roadWidth(9)],['progress-bright','progress','#A9B4BF',roadWidth(7)],['track-line','track','#C96E4B',4]]){
     map.addLayer({id,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':color,'line-width':width}});
    }
+   // Une seule ligne à suivre : le tracé marron (chemin enregistré) reste en mémoire mais n'est plus affiché.
+   try{map.setLayoutProperty('track-line','visibility','none');}catch{}
+   // Guidage : seule la portion à venir (250 m) est tracée en bleu, avec des flèches blanches.
+   map.addSource('ahead',{type:'geojson',data:line([first,first])});
+     // Retour vers le point de départ (dernière partie de la boucle) : bleu pâle pointillé, pour ne pas le confondre avec l'aller.
+   map.addSource('return',{type:'geojson',data:line(trailBetween(Math.max(0,totalMeters-RETURN_M),totalMeters))});
+   map.addLayer({id:'return-line',type:'line',source:'return',layout:{'line-cap':'butt','line-join':'round'},paint:{'line-color':'#8DB6EE','line-width':roadWidth(6),'line-dasharray':[1.5,1.5]}});
+   map.addLayer({id:'ahead-halo',type:'line',source:'ahead',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#FFFFFF','line-width':roadWidth(11)}});
+   map.addLayer({id:'ahead-bright',type:'line',source:'ahead',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#1E6FD9','line-width':roadWidth(8)}});
    for(const [id,p,color] of [['start',loopSession?.entry.point||first,'#C96E4B'],['end',active.points.at(-1),'#7FA36A']]){
     map.addSource(id,{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'Point',coordinates:[p[1],p[0]]}}});
     map.addLayer({id,type:'circle',source:id,paint:{'circle-radius':6,'circle-color':color,'circle-stroke-color':'#fff','circle-stroke-width':2}});
@@ -655,12 +712,21 @@ async function main(){
   $('rallye')?.addEventListener?.('close',()=>{if(paused&&keepPaused)resumeRecording();});
   $('end-close').onclick=()=>$('end-sheet').close();
   // Balade en cours trouvée à l'ouverture : reprendre ou terminer, jamais de reprise silencieuse.
-  $('resume-continue').onclick=()=>{$('resume-sheet').close();$('enter')?.click?.();};
-  $('resume-finish').onclick=()=>{$('resume-sheet').close();const pending=loadSavedBalade();if(pending){restoreBalade(pending);finishBalade();}};
+  // Choix obligatoire : Échap ne ferme pas la fenêtre tant qu'on n'a pas choisi (pas de reprise silencieuse plus tard).
+  let resumeChoice=false;
+  $('resume-continue').onclick=()=>{
+   resumeChoice=true;$('resume-sheet').close();
+   // Une balade déjà marchée (ou guidée) reprend sans le guide de départ : on est déjà sur le parcours.
+   const p=loadSavedBalade();if(p&&(Number(p.walked)>0||p.loop))departConfirmed=true;
+   $('enter')?.click?.();
+  };
+  $('resume-finish').onclick=()=>{resumeChoice=true;$('resume-sheet').close();const pending=loadSavedBalade();if(pending){restoreBalade(pending);finishBalade();}departGuide();};
   const pendingBalade=loadSavedBalade();
   if(pendingBalade){
    $('resume-summary').textContent=`Identifiant ${pendingBalade.id} · ${fmtKm(Number(pendingBalade.walked)||0)} parcourus · démarrée le ${new Date(pendingBalade.startedAt).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}`;
-   const sheet=$('resume-sheet');if(!sheet.open){try{sheet.showModal();}catch{sheet.setAttribute('open','');}}
+   const sheet=$('resume-sheet');
+   sheet.addEventListener('cancel',e=>{if(!resumeChoice)e.preventDefault();});
+   if(!sheet.open){try{sheet.showModal();}catch{sheet.setAttribute('open','');}}
   }
     $('audio').onclick=toggleAudio;
   $('audio-test').onclick=testAudio;
@@ -675,6 +741,7 @@ async function main(){
    $('demo-banner').textContent=demoPaused?'DÉMONSTRATION · EN PAUSE':'DÉMONSTRATION · ×10 · GPS INACTIF';
   };
   for(const id of ['fit','center','toggle','demo','reset-gps'])$(id).disabled=false;
+  try{$('full-route').disabled=false;$('full-route').onclick=toggleFullRoute;}catch{}
   entryDisplay();status('Départ libre sur la boucle · GPS ou Démo au choix.');resumeFollow();
   if(startWanted){startWanted=false;startGps();}
   // Échec distant : le style local et les couches de trace restent disponibles.
@@ -702,6 +769,8 @@ document.addEventListener('visibilitychange',()=>{
   if(demoRunning&&!demoPaused)$('demo-pause').click();
  }else if(gpsRunning){
   minFixTime=Date.now();clearTimeout(freshnessTimer);
+  // Écran verrouillé : la première position reprise devient le nouveau point d'ancrage (pas de ligne droite à travers la carte).
+  if(loopSession)reanchorPending=true;
   suspendProgress('Retour au premier plan : attente d’une mesure GPS récente.');
   $('signal').textContent='GPS en attente';status('Retour au premier plan : attente d’une mesure GPS récente.',true);
   void requestWakeLock();
@@ -720,6 +789,8 @@ function departGuide(){
  const show=!demoRunning&&!departConfirmed&&(!balade||walked===0);
  document.body.classList.toggle('guide-on',show);
  el.hidden=!show;
+ // Pendant le guide de départ, la ligne bleue en pointillés vers le départ est la seule à suivre.
+ if(map?.getLayer?.('to-start'))map.setLayoutProperty('to-start','visibility',show?'visible':'none');
  if(!show)return;
  const first=active.points[0],dist=lastFix?metres(lastFix,first):null;
  const title=$('depart-title'),text=$('depart-text'),act=$('depart-action'),see=$('depart-see');
@@ -729,12 +800,13 @@ function departGuide(){
   act.hidden=false;act.textContent='Activer ma position';act.onclick=()=>{if(!gpsRunning)startGps();};
  }else if(dist>DEPART_M){
   title.textContent='Va au point de départ';
-  text.textContent='Le point de départ rouge est à '+fmtM(dist)+'. Suis la bande bleue sur la carte.';
+  // Guidage jusqu'au point rouge : pas de bouton tant que tu n'es pas arrivé.
+  text.textContent='Va au point de départ rouge, à '+fmtM(dist)+'. Suis la flèche blanche et la ligne bleue.';
   act.hidden=true;
  }else{
   title.textContent='Tu es au départ !';
-  text.textContent='Ta balade est prête. Touche « Commencer », puis marche : le parcours s’enregistre sur ton appareil uniquement.';
-  act.hidden=false;act.textContent='Commencer la balade';
+  text.textContent='Tu es arrivé au point de départ. Touche COMMENCER LA BALADE pour lancer le guidage.';
+  act.hidden=false;act.textContent='COMMENCER LA BALADE';
   act.onclick=()=>{departConfirmed=true;if(!balade)beginBalade();if(!gpsRunning)startGps();departGuide();};
  }
  if(routeMsg&&Date.now()<routeMsgUntil)text.textContent=routeMsg;
@@ -774,7 +846,7 @@ function ensureTurnBanner(){
  if(document.getElementById('turn-banner'))return;
  const b=document.createElement('div');
  b.id='turn-banner';b.setAttribute('role','status');b.setAttribute('aria-live','polite');
- b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:60;display:none;align-items:center;gap:14px;padding:14px 16px;background:#15191f;color:#fff;font-family:-apple-system,system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.45);';
+ b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:60;display:none;align-items:center;gap:14px;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;background:#15191f;color:#fff;font-family:-apple-system,system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.45);';
  b.innerHTML='<svg id="turn-arrow" width="60" height="60" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="M5 21V11q0-5 5-5h9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2l7 4-7 4z" fill="#fff"/></svg><div style="min-width:0"><div id="turn-main" style="font-size:26px;font-weight:700;line-height:1.1"></div><div id="turn-sub" style="font-size:15px;color:#9fb4c7;margin-top:4px"></div></div>';
  document.body.appendChild(b);
 }
@@ -794,20 +866,26 @@ function placeTurnArrows(turns){
 let lastTurnAlong=0;
 function updateTurnGuide(along){
  lastTurnAlong=along;
+ // Bandeau de guidage retiré (test terrain du 16/11) : seul le tracé guide.
+ {const b=document.getElementById('turn-banner');if(b)b.style.display='none';return;}
  ensureTurnBanner();
  const banner=document.getElementById('turn-banner');
  const turns=turnList();
- const active_=!!active&&(balade||demoRunning);
+ // Pas de consigne avant d'avoir appuyé sur « Commencer la balade » (ou après une reprise de balade déjà marchée).
+ const active_=!!active&&(demoRunning||(!!balade&&(departConfirmed||walked>0)));
+ // Signale pourquoi la consigne ne bouge pas : hors trace, pause ou GPS faible.
+ const note=!active_?'':offRoute?'Hors trace · rejoins la ligne':paused?'Pause · reprends la marche':!gpsReliable?'Signal GPS faible · consigne figée':'';
+ const subText=t=>note?note+' · '+t:t;
  banner.style.display=active_?'flex':'none';
  if(!active_||!turns.length)return;
  placeTurnArrows(turns);
  turnMarkers.forEach(m=>{m.getElement().style.display=m._along<along-8?'none':'';});
  const i=turns.findIndex(t=>t.along>along+3);
  const main=document.getElementById('turn-main'), sub=document.getElementById('turn-sub'), arrow=document.getElementById('turn-arrow');
- if(i<0){main.textContent='Dernier tronçon';sub.textContent='Tu approches de l’arrivée';arrow.style.transform='';return;}
+ if(i<0){main.textContent='Dernier tronçon';sub.textContent=subText('Tu approches de l’arrivée');arrow.style.transform='';return;}
  const next=turns[i], after=turns[i+1], dist=next.along-along;
  main.textContent=dist<25?'Maintenant : tourne à '+next.dir:'Dans '+fmtM(dist)+' : tourne à '+next.dir;
- sub.textContent=after?'Puis dans '+fmtM(after.along-next.along)+' : tourne à '+after.dir:'Puis arrivée';
+ sub.textContent=subText(after?'Puis dans '+fmtM(after.along-next.along)+' : tourne à '+after.dir:'Puis arrivée');
  arrow.style.transform=next.dir==='gauche'?'scaleX(-1)':'';
 }
 // Guide vers le départ : flèche blanche/bleue qui pointe vers le point de départ rouge.
@@ -850,7 +928,7 @@ function ensureRouteButton(){
  if(!actions||document.getElementById('depart-route'))return;
  const b=document.createElement('button');
  b.type='button';b.id='depart-route';b.className='primary';
- b.textContent='Itinéraire à pied jusqu’au départ';
+ b.textContent='Voir l’itinéraire à pied';
  b.setAttribute('aria-label','Calculer l’itinéraire à pied jusqu’au point de départ');
  b.onclick=routeToStart;
  actions.append(b);
@@ -879,11 +957,11 @@ async function routeToStart(){
   }else map.getSource('to-start').setData(line(pts));
   routeMsg='Itinéraire à pied : '+fmtM(km*1000)+' environ, '+min+' min. Suis la ligne bleue en pointillés.';routeMsgUntil=Date.now()+600000;
   $('depart-text').textContent=routeMsg;
-  if(btn)btn.textContent='Itinéraire calculé';
+  if(btn)btn.textContent='Recalculer l’itinéraire';
  }catch(e){
   routeMsg='Itinéraire indisponible ('+e.message+'). Suis la flèche et la distance.';routeMsgUntil=Date.now()+60000;
   $('depart-text').textContent=routeMsg;
-  if(btn)btn.textContent='Itinéraire à pied jusqu’au départ';
+  if(btn)btn.textContent='Voir l’itinéraire à pied';
  }finally{toStartBusy=false;}
 }
 setInterval(()=>{try{ensureRouteButton();}catch{}},2000);

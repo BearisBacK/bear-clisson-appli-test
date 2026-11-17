@@ -57,7 +57,23 @@
     // Réserve disponible = gouttes ramassées moins le miel déjà offert aux oursons.
     const spent=()=>{try{const n=Number(storage?.getItem('bear-miel-spent-v1')||0);return Number.isFinite(n)&&n>0?Math.floor(n):0;}catch{return 0;}};
     const available=()=>Math.max(0,picked.size-spent());
-    const count=()=>{const c=el('miel-count');if(c)c.textContent=(available()<=1?'🍯 '+available()+' goutte de miel':'🍯 '+available()+' gouttes de miel')+' dans ta réserve';};
+    const count=()=>{
+      const c=el('miel-count');if(c)c.textContent=(available()<=1?'🍯 '+available()+' goutte de miel':'🍯 '+available()+' gouttes de miel')+' dans ta réserve';
+      // Compteur permanent en haut de l'écran, à la même place (façon anneaux de Sonic).
+      const h=el('miel-hud');if(h)h.textContent='🍯 '+available();
+    };
+    // Compteur fixe en haut à droite : il ne bouge jamais, il rebondit à chaque goutte ramassée.
+    function ensureHud(){
+      try{
+        if(el('miel-hud')||!doc.body)return;
+        const h=doc.createElement('div');h.id='miel-hud';h.setAttribute('role','status');h.setAttribute('aria-live','polite');
+        h.setAttribute('aria-label','Compteur de gouttes de miel');
+        doc.body.appendChild(h);
+      }catch{/* Pas de compteur visuel : le ramassage reste possible. */}
+    }
+    function bumpHud(){
+      try{const h=el('miel-hud');if(!h?.classList)return;h.classList.remove('bump');void h.offsetWidth;h.classList.add('bump');}catch{/* Animation facultative. */}
+    }
     function draw(){
       try{
         const data=toFeatures(list,picked);
@@ -102,14 +118,14 @@
       }
       if(got.length){
         savePicked(storage,picked);
-        toast(got.length===1?'🍯 Une goutte de miel ramassée !':'🍯 '+got.length+' gouttes de miel ramassées !');
+        // Plus de message « goutte ramassée » : le compteur en haut de l'écran suffit.
         chime();
         try{win.navigator?.vibrate?.(30);}catch{}
-        count();draw();
+        count();bumpHud();draw();
       }
       return got;
     }
-    count();draw();
+    ensureHud();count();draw();
     doc.addEventListener?.('pointerdown',unlockSound,{passive:true});
     map.on?.('style.load',draw);
     const timer=win.setInterval?.(()=>{if(!doc.hidden)tick();},POLL_MS);

@@ -222,13 +222,15 @@
       else if(stuck&&stuck.id===bear.id&&d>DEGRADED_NEAR_M)stuck=null;
     }
     function degradedOk(bear,fix){return !!stuck&&stuck.id===bear.id&&Date.now()-stuck.since>=DEGRADED_MS&&nearDistance(bear,fix)<=DEGRADED_NEAR_M;}
+    let lastRoarId=null;
     function renderBears(fix){
       let toCatch=null;
-      // Un seul ours à la fois : le prochain non attrapé dans l'ordre du parcours.
-      const nextBear=bears.filter(b=>!caught[b.id]).sort((a,b)=>a.km-b.km)[0]||null;
+      // Tous les oursons non attrapés sont visibles, dans l'ordre que tu veux (règle « un ours à la fois » annulée le 17/11/2026).
+      // L'état « traces d'ourson » ne suit que le plus proche non attrapé.
+      const pending=bears.filter(b=>!caught[b.id]);
+      const nextBear=pending.length?(fix?pending.reduce((best,b)=>nearDistance(b,fix)<nearDistance(best,fix)?b:best):pending[0]):null;
       if(nextBear)updateStuck(nextBear,fix);
       for(const bear of bears){
-        if(bear!==nextBear&&!caught[bear.id]){bearMarkers.get(bear.id)?.remove?.();bearMarkers.delete(bear.id);continue;}
         // Un ours attrapé quitte la carte : il est désormais dans le carnet.
         if(caught[bear.id]){bearMarkers.get(bear.id)?.remove?.();bearMarkers.delete(bear.id);continue;}
         let m=bearMarkers.get(bear.id),b=m?.getElement?.()||m?._el;
@@ -247,11 +249,15 @@
         (b._face||b).textContent=got?'✓':ready?'🧸':'🐾';
         b.setAttribute('aria-label',got?bear.nom+' est déjà dans ton carnet':ready?bear.nom+' est là ! Touche pour l’attraper':'Traces d’ourson : approche-toi');
       }
+      // Son d'approche : un rugissement quand un ours devient attrapable (une fois par ours).
+      if(toCatch&&toCatch.id!==lastRoarId){lastRoarId=toCatch.id;try{win.BearSons?.rugissement();}catch{}}
+      if(!toCatch)lastRoarId=null;
       showReady(toCatch);
       renderCollection();
     }
     // Entrée dans le carnet : appelée une fois la rencontre terminée (ou directement sans module 3D).
     function commitCatch(bear,photo,ctx={}){
+      try{win.BearSons?.attrape();}catch{}
       const win2=win;
       let from=ctx.from||bearMarkers.get(bear.id)?._el?.getBoundingClientRect?.();
       // Ours hors écran (carte décentrée) : l'envol part du centre de l'écran.
@@ -492,7 +498,7 @@
     function tick(fix=getFix(),now=Date.now()){
       const r=updateNear(near,allPlaces,fix,now);
       near=r.near;
-      if(r.entered.length){const p=byId.get(r.entered[0]);toast('✨ '+p.name+' s’illumine ! '+(p.type==='patrimoine'?'Touche le repère doré pour découvrir son histoire.':'Touche son repère pour le découvrir.'));try{win.navigator?.vibrate?.([40,60,40]);}catch{}}
+      if(r.entered.length){try{win.BearSons?.bonne();}catch{}const p=byId.get(r.entered[0]);toast('✨ '+p.name+' s’illumine ! '+(p.type==='patrimoine'?'Touche le repère doré pour découvrir son histoire.':'Touche son repère pour le découvrir.'));try{win.navigator?.vibrate?.([40,60,40]);}catch{}}
       drawGlow();showPlaceReady();renderBears(fix);
       return r;
     }

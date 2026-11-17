@@ -432,3 +432,37 @@ a{color:var(--river)}
 .carnet-ripple{position:fixed;z-index:61;border-radius:50%;border:3px solid #F4D77A;box-shadow:0 0 0 2px #2F2A26;pointer-events:none;will-change:transform,opacity}
 .pokedex-new .pokedex-photo{animation:carnet-pulse 1.1s ease-in-out 2}
 @media (prefers-reduced-motion:reduce){.carnet-ghost,.carnet-ripple{display:none}.pokedex-new .pokedex-photo{animation:none}}
+
+/* Étape 1 : libellé de l’eyebrow lisible sur le fond bleu du panneau de départ. */
+.depart-guide .eyebrow{color:#FFFFFF;opacity:1}
+.depart-guide h2,.depart-guide p{color:#FFFFFF}
+
+/* Compteur de gouttes de miel : fixe en haut à droite, comme les anneaux de Sonic. */
+#miel-hud{position:fixed;z-index:55;top:calc(12px + env(safe-area-inset-top));right:12px;background:rgba(21,25,31,.88);color:#FFD35A;border-radius:999px;padding:6px 14px;font:800 18px -apple-system,system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none}
+#miel-hud.bump{animation:miel-bump .3s ease-out}
+@keyframes miel-bump{0
+/* Compteur de gouttes de miel : fixe en haut à droite, comme les anneaux de Sonic. */
+#miel-hud{position:fixed;z-index:55;top:calc(12px + env(safe-area-inset-top));right:12px;background:rgba(21,25,31,.88);color:#FFD35A;border-radius:999px;padding:6px 14px;font:800 18px -apple-system,system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none}
+#miel-hud.bump{animation:miel-bump .3s ease-out}
+@keyframes miel-bump{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+/* Prochain repère : une ligne au-dessus des distances, lisible sur la carte. */
+.next-repere{margin:0 0 6px;font-size:14px;font-weight:700;text-align:center;background:rgba(255,249,243,.92);border-radius:999px;padding:4px 12px;display:inline-block;max-width:100%}
+.next-repere:empty{display:none}
+
+/* Prochain repère : affiché en bas de l'écran, au-dessus des distances (sinon il passait sous l'en-tête). */
+#next-repere.next-repere{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:50;margin:0;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+
+/* Carnet > Spot : une carte nette par spot, la photo reste dans la carte (ne déborde plus à droite). */
+#spot-photos-list{list-style:none;padding:0;margin:0}
+#spot-photos-list li.ourson-slot{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;box-sizing:border-box;width:100%;max-width:100%;margin:0 0 12px;padding:14px 16px;background:#F4E7D3;border:1px dashed var(--ink);border-radius:18px;overflow:hidden}
+#spot-photos-list li.ourson-slot span{min-width:0;overflow-wrap:anywhere;font-size:15px}
+#spot-photos-list .spot-thumb{display:block;width:100%;max-width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:12px}
+
+/* Plusieurs photos par spot : galerie dans la fiche, une ligne de retrait sous chaque photo. */
+.spot-gallery{display:grid;gap:12px}
+.spot-shot{display:grid;gap:6px}
+.spot-shot button{min-height:44px;font-size:14px}
+
+/* Sauvegarde du carnet : deux boutons côte à côte, lisibles au pouce. */
+.backup-actions{display:grid;gap:10px;margin:10px 0}
