@@ -322,29 +322,27 @@ function toggleFullRoute(){
  b.textContent=fullRoute?'Revenir à ma direction':'Voir tout le tracé';
  try{updateAhead(lastAlong);}catch{}
 }
+let routeClipped=false;
 function updateAhead(along){
  lastAlong=along;
  if(!mapReady||!map.getLayer('ahead-bright'))return;
  const on=guidanceOn();
  const showFull=!on||fullRoute;
- for(const id of ['route-halo','route-bright','return-line'])map.setLayoutProperty(id,'visibility',showFull?'visible':'none');
- for(const id of ['ahead-halo','ahead-bright'])map.setLayoutProperty(id,'visibility',showFull?'none':'visible');
+ // Pendant la balade : tout le tracé reste en bleu, sauf les 500 derniers mètres avant l'arrivée (pas de confusion au départ).
+ const clip=on&&!fullRoute;
+ if(clip!==routeClipped){
+  routeClipped=clip;
+  map.getSource('route')?.setData(line(clip?trailBetween(0,Math.max(0,totalMeters-AHEAD_M)):active.points));
+ }
+ for(const id of ['route-halo','route-bright'])map.setLayoutProperty(id,'visibility','visible');
+ map.setLayoutProperty('return-line','visibility',showFull?'visible':'none');
+ for(const id of ['ahead-halo','ahead-bright'])map.setLayoutProperty(id,'visibility','none');
  // Départ et arrivée sont au même endroit : un seul repère, le point de départ.
  map.setLayoutProperty('end','visibility','none');
- if(showFull)return;
- const total=totalMeters,a=((along%total)+total)%total;
- const pts=loopSession.direction<0?trailBetween(Math.max(0,a-AHEAD_M),a).reverse():trailBetween(a,Math.min(total,a+AHEAD_M));
- map.getSource('ahead').setData(line(pts));
 }
 // Indique de quel côté revenir sur le tracé, par rapport au sens de marche.
-function rejoinHint(nearest){
- try{
-  const course=travelCourse();
-  const rel=((bearing(lastFix,nearest.point)-course+540)%360)-180;
-  const side=Math.abs(rel)<35?'devant toi':Math.abs(rel)>145?'derrière toi':rel>0?'à droite':'à gauche';
-  return 'Rejoins le tracé · '+fmtM(nearest.gap)+' '+side;
- }catch{return 'Rejoins le tracé · '+fmtM(nearest.gap)+' de la ligne';}
-}
+// Hors trace : un seul message, sans distance ni direction.
+function rejoinHint(){return 'Rejoins le point de départ';}
 // Prochain repère (ours non attrapé) : distance restante le long de la trace.
 function renderNextRepere(along){
  const el=document.getElementById('next-repere');if(!el)return;
@@ -681,9 +679,10 @@ async function main(){
    map.addLayer({id:'return-line',type:'line',source:'return',layout:{'line-cap':'butt','line-join':'round'},paint:{'line-color':'#8DB6EE','line-width':roadWidth(6),'line-dasharray':[1.5,1.5]}});
    map.addLayer({id:'ahead-halo',type:'line',source:'ahead',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#FFFFFF','line-width':roadWidth(11)}});
    map.addLayer({id:'ahead-bright',type:'line',source:'ahead',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#1E6FD9','line-width':roadWidth(8)}});
-   for(const [id,p,color] of [['start',loopSession?.entry.point||first,'#C96E4B'],['end',active.points.at(-1),'#7FA36A']]){
+   // Repères du départ et de l'arrivée : un mot sur la carte (pas un point).
+   for(const [id,p,color,label,dy] of [['start',loopSession?.entry.point||first,'#C96E4B','DÉPART',-2.2],['end',active.points.at(-1),'#7FA36A','ARRIVÉE',2.2]]){
     map.addSource(id,{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'Point',coordinates:[p[1],p[0]]}}});
-    map.addLayer({id,type:'circle',source:id,paint:{'circle-radius':6,'circle-color':color,'circle-stroke-color':'#fff','circle-stroke-width':2}});
+    map.addLayer({id,type:'symbol',source:id,layout:{'text-field':label,'text-font':['Noto Sans Bold'],'text-size':14,'text-letter-spacing':0.08,'text-allow-overlap':true,'text-ignore-placement':true,'text-offset':[0,dy]},paint:{'text-color':'#FFFFFF','text-halo-color':color,'text-halo-width':6}});
    }
   };
   map.on('style.load',()=>{clearTimeout(styleTimer);addTrace();mapReady=true;
@@ -779,40 +778,22 @@ document.addEventListener('visibilitychange',()=>{
 main();
 
 // ---- Étape 1 : guide du départ, avant la balade. Mène au repère vert, puis propose de démarrer. ----
-const DEPART_M=30;
 let departConfirmed=false;
 function departGuide(){
  const el=document.getElementById('depart-guide');
  if(!el||!active)return;
- // « Partir à l’aventure » lance le GPS et la balade : le guide reste tant qu'on n'a pas marché, ou jusqu'à « Commencer ».
+ // « Partir à l’aventure » lance le GPS et la balade : le guide reste tant qu'on n'a pas marché, ou jusqu'à « DÉPART ».
  if(!balade)departConfirmed=false;
  const show=!demoRunning&&!departConfirmed&&(!balade||walked===0);
  document.body.classList.toggle('guide-on',show);
  el.hidden=!show;
- // Pendant le guide de départ, la ligne bleue en pointillés vers le départ est la seule à suivre.
- if(map?.getLayer?.('to-start'))map.setLayoutProperty('to-start','visibility',show?'visible':'none');
  if(!show)return;
- const first=active.points[0],dist=lastFix?metres(lastFix,first):null;
- const title=$('depart-title'),text=$('depart-text'),act=$('depart-action'),see=$('depart-see');
- if(dist===null){
-  title.textContent='Bienvenue sur la balade';
-  text.textContent='Ton parcours commence au point de départ rouge. Autorise la localisation : l’appli te guide jusque-là.';
-  act.hidden=false;act.textContent='Activer ma position';act.onclick=()=>{if(!gpsRunning)startGps();};
- }else if(dist>DEPART_M){
-  title.textContent='Va au point de départ';
-  // Guidage jusqu'au point rouge : pas de bouton tant que tu n'es pas arrivé.
-  text.textContent='Va au point de départ rouge, à '+fmtM(dist)+'. Suis la flèche blanche et la ligne bleue.';
-  act.hidden=true;
- }else{
-  title.textContent='Tu es au départ !';
-  text.textContent='Tu es arrivé au point de départ. Touche COMMENCER LA BALADE pour lancer le guidage.';
-  act.hidden=false;act.textContent='COMMENCER LA BALADE';
-  act.onclick=()=>{departConfirmed=true;if(!balade)beginBalade();if(!gpsRunning)startGps();departGuide();};
- }
- if(routeMsg&&Date.now()<routeMsgUntil)text.textContent=routeMsg;
- title.textContent='POINT DE DÉPART';
+ // Pas de distance ni d'itinéraire : le joueur rejoint le départ seul, puis touche DÉPART.
+ $('depart-title').textContent='Point de départ';
+ $('depart-text').textContent='Rejoins le point de départ !';
+ const act=$('depart-action');act.hidden=false;act.textContent='DÉPART';
+ act.onclick=()=>{departConfirmed=true;if(!balade)beginBalade();if(!gpsRunning)startGps();departGuide();};
  const sign=$('depart-guide');if(sign){sign.style.background='#1E6FD9';sign.style.color='#FFFFFF';sign.style.border='4px solid #FFFFFF';}
- see.onclick=()=>{if(map)map.easeTo({center:[first[1],first[0]],zoom:17,duration:600});};
 }
 setInterval(()=>{try{departGuide();}catch{}},2000);
 
@@ -874,7 +855,7 @@ function updateTurnGuide(along){
  // Pas de consigne avant d'avoir appuyé sur « Commencer la balade » (ou après une reprise de balade déjà marchée).
  const active_=!!active&&(demoRunning||(!!balade&&(departConfirmed||walked>0)));
  // Signale pourquoi la consigne ne bouge pas : hors trace, pause ou GPS faible.
- const note=!active_?'':offRoute?'Hors trace · rejoins la ligne':paused?'Pause · reprends la marche':!gpsReliable?'Signal GPS faible · consigne figée':'';
+ const note=!active_?'':offRoute?'Hors trace · rejoins le point de départ':paused?'Pause · reprends la marche':!gpsReliable?'Signal GPS faible · consigne figée':'';
  const subText=t=>note?note+' · '+t:t;
  banner.style.display=active_?'flex':'none';
  if(!active_||!turns.length)return;
@@ -888,80 +869,6 @@ function updateTurnGuide(along){
  sub.textContent=subText(after?'Puis dans '+fmtM(after.along-next.along)+' : tourne à '+after.dir:'Puis arrivée');
  arrow.style.transform=next.dir==='gauche'?'scaleX(-1)':'';
 }
-// Guide vers le départ : flèche blanche/bleue qui pointe vers le point de départ rouge.
-function updateStartArrow(){
- let el=document.getElementById('depart-arrow');
- const text=$('depart-text');
- if(!el&&text){
-  el=document.createElement('div');el.id='depart-arrow';el.setAttribute('aria-hidden','true');
-  el.style.cssText='width:64px;height:64px;margin:10px auto 0;display:none;';
-  el.innerHTML='<svg width="64" height="64" viewBox="0 0 24 24"><path d="M12 2L21 20 12 15 3 20z" fill="#1E6FD9" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></svg>';
-  text.insertAdjacentElement('afterend',el);
- }
- if(!el)return;
- const shown=document.body.classList.contains('guide-on')&&!!lastFix&&!!active;
- if(!shown){el.style.display='none';return;}
- const first=active.points[0];
- el.style.display='block';
- el.style.transform='rotate('+(bearing(lastFix,first)-(heading??0))+'deg)';
-}
-setInterval(()=>{try{updateStartArrow();}catch{}try{if(balade||demoRunning)updateTurnGuide(lastTurnAlong);}catch{}},2000);
+setInterval(()=>{try{if(balade||demoRunning)updateTurnGuide(lastTurnAlong);}catch{}},2000);
 
-// --- Itinéraire à pied jusqu'au point de départ (appel réseau seulement sur appui du bouton) ---
-const ROUTE_API='https://valhalla1.openstreetmap.de/route';
-let toStartBusy=false, toStartLast=0, routeMsg='', routeMsgUntil=0;
-function decodePolyline6(s){
- const out=[];let i=0,lat=0,lon=0;
- while(i<s.length){
-  for(const axis of [0,1]){
-   let shift=0,res=0,b;
-   do{b=s.charCodeAt(i++)-63;res|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
-   const v=(res&1)?~(res>>1):(res>>1);
-   if(axis===0)lat+=v;else lon+=v;
-  }
-  out.push([lat/1e6,lon/1e6]);
- }
- return out;
-}
-function ensureRouteButton(){
- const actions=document.querySelector('#depart-guide .depart-actions');
- if(!actions||document.getElementById('depart-route'))return;
- const b=document.createElement('button');
- b.type='button';b.id='depart-route';b.className='primary';
- b.textContent='Voir l’itinéraire à pied';
- b.setAttribute('aria-label','Calculer l’itinéraire à pied jusqu’au point de départ');
- b.onclick=routeToStart;
- actions.append(b);
-}
-async function routeToStart(){
- const btn=document.getElementById('depart-route');
- if(!active||!lastFix){$('depart-text').textContent='Autorise d’abord ta position, puis touche à nouveau le bouton.';return;}
- if(toStartBusy)return;
- if(Date.now()-toStartLast<20000){return;}
- toStartBusy=true;toStartLast=Date.now();
- if(btn)btn.textContent='Calcul en cours…';
- try{
-  const first=active.points[0];
-  const body={locations:[{lat:lastFix[0],lon:lastFix[1]},{lat:first[0],lon:first[1]}],costing:'pedestrian',directions_options:{units:'kilometers'}};
-  const r=await fetch(ROUTE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw Error('HTTP '+r.status);
-  const j=await r.json();
-  const leg=j.trip?.legs?.[0];
-  if(!leg?.shape)throw Error('pas d’itinéraire');
-  const pts=decodePolyline6(leg.shape);
-  const km=j.trip.summary.length, min=Math.round(j.trip.summary.time/60);
-  if(!map.getSource('to-start')){
-   map.addSource('to-start',{type:'geojson',data:line(pts)});
-   map.addLayer({id:'to-start',type:'line',source:'to-start',layout:{'line-cap':'round','line-join':'round'},
-    paint:{'line-color':'#1E6FD9','line-width':roadWidth(6),'line-dasharray':[1.2,1]}});
-  }else map.getSource('to-start').setData(line(pts));
-  routeMsg='Itinéraire à pied : '+fmtM(km*1000)+' environ, '+min+' min. Suis la ligne bleue en pointillés.';routeMsgUntil=Date.now()+600000;
-  $('depart-text').textContent=routeMsg;
-  if(btn)btn.textContent='Recalculer l’itinéraire';
- }catch(e){
-  routeMsg='Itinéraire indisponible ('+e.message+'). Suis la flèche et la distance.';routeMsgUntil=Date.now()+60000;
-  $('depart-text').textContent=routeMsg;
-  if(btn)btn.textContent='Voir l’itinéraire à pied';
- }finally{toStartBusy=false;}
-}
-setInterval(()=>{try{ensureRouteButton();}catch{}},2000);
+
