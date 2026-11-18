@@ -37,7 +37,10 @@
    // Reprise après un détour : accepté seulement si le chemin marché depuis l'ancre le permet.
    // Une téléportation (saut sans marche) reste refusée.
    const jump=Math.abs(delta(nearest.along,previous.along,total));
-   if(!choice&&unambiguous()&&jump<=walkBound+2*accuracy+20)choice={...nearest,reacquired:true};
+   // Le saut le long du tracé ne peut pas dépasser la distance à vol d'oiseau depuis l'ancre :
+   // sinon un point hors trace, projeté plus loin sur le tracé, ferait compter des mètres non marchés.
+   const direct=previous.point?Math.hypot((here[1]-previous.point[1])*kx,(here[0]-previous.point[0])*111195):Infinity;
+   if(!choice&&unambiguous()&&jump<=Math.min(walkBound,direct)+2*accuracy+20)choice={...nearest,reacquired:true};
   }else if(unambiguous())choice=nearest;
   return {nearest,projection:choice||null,reason:choice?(choice.reacquired?'reacquired':'ok'):'ambiguous'};
  }
